@@ -1,0 +1,1375 @@
+-- ╔══════════════════════════════════════════╗
+-- ║   🪧 PLAQUINHA PRO — Totalmente Config   ║
+-- ║   Executor Compatible                    ║
+-- ║   by @o_escolhido on tiktok              ║
+-- ╚══════════════════════════════════════════╝
+
+local Players      = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer  = Players.LocalPlayer
+local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ══════════════════════════════════════════
+--              CONFIG PADRÃO
+-- ══════════════════════════════════════════
+
+local cfg = {
+    -- Textos
+    texto1     = "SPAWNER NO PRIMEIRO VÍDEO E NA B1O!",
+    texto2     = "",
+    emoji1esq  = "🔥",
+    emoji1dir  = "🔥",
+    emoji2esq  = "✏️",
+    emoji2dir  = "✏️",
+
+    -- Visibilidade
+    mostrarPlaca1  = true,
+    mostrarPlaca2  = true,
+    mostrarEmoji1  = true,
+    mostrarEmoji2  = true,
+
+    -- Tamanho das placas (pixels)
+    largura    = 640,
+    altura     = 86,
+
+    -- Posição (distância do topo)
+    posYPlaca1 = 14,
+    posYPlaca2 = 118,
+
+    -- Cor manual (quando animação OFF)
+    corTexto   = Color3.fromRGB(255, 255, 255),
+    corBorda   = Color3.fromRGB(255, 255, 255),
+
+    -- Animação
+    animacao   = true,
+    velocidade = 1.2, -- segundos por ciclo
+
+    -- Fonte
+    fontePlaca1 = Enum.Font.GothamBlack,
+    fontePlaca2 = Enum.Font.GothamBlack,
+
+    -- Ordem (1 = placa1 em cima, 2 = placa2 em cima)
+    ordem = 1,
+}
+
+-- ══════════════════════════════════════════
+--               AUTO SAVE
+-- ══════════════════════════════════════════
+
+local SAVE_FILE = "plaquinha_pro_save.txt"
+
+local function salvarCfg()
+    if not writefile then return end
+    local d = cfg.texto1 .."|".. cfg.texto2 .."|"..
+              cfg.emoji1esq .."|".. cfg.emoji1dir .."|"..
+              cfg.emoji2esq .."|".. cfg.emoji2dir .."|"..
+              tostring(cfg.mostrarPlaca1) .."|".. tostring(cfg.mostrarPlaca2) .."|"..
+              tostring(cfg.mostrarEmoji1) .."|".. tostring(cfg.mostrarEmoji2) .."|"..
+              cfg.largura .."|".. cfg.altura .."|"..
+              cfg.posYPlaca1 .."|".. cfg.posYPlaca2 .."|"..
+              tostring(cfg.animacao) .."|".. cfg.velocidade .."|".. cfg.ordem
+    pcall(writefile, SAVE_FILE, d)
+end
+
+local function carregarCfg()
+    if not (readfile and isfile and isfile(SAVE_FILE)) then return end
+    local ok, d = pcall(readfile, SAVE_FILE)
+    if not ok or not d then return end
+    local t = d:split("|")
+    cfg.texto1         = t[1]  or cfg.texto1
+    cfg.texto2         = t[2]  or cfg.texto2
+    cfg.emoji1esq      = t[3]  or cfg.emoji1esq
+    cfg.emoji1dir      = t[4]  or cfg.emoji1dir
+    cfg.emoji2esq      = t[5]  or cfg.emoji2esq
+    cfg.emoji2dir      = t[6]  or cfg.emoji2dir
+    cfg.mostrarPlaca1  = t[7]  == "true"
+    cfg.mostrarPlaca2  = t[8]  == "true"
+    cfg.mostrarEmoji1  = t[9]  == "true"
+    cfg.mostrarEmoji2  = t[10] == "true"
+    cfg.largura        = tonumber(t[11]) or cfg.largura
+    cfg.altura         = tonumber(t[12]) or cfg.altura
+    cfg.posYPlaca1     = tonumber(t[13]) or cfg.posYPlaca1
+    cfg.posYPlaca2     = tonumber(t[14]) or cfg.posYPlaca2
+    cfg.animacao       = t[15] == "true"
+    cfg.velocidade     = tonumber(t[16]) or cfg.velocidade
+    cfg.ordem          = tonumber(t[17]) or cfg.ordem
+end
+
+carregarCfg()
+
+-- ══════════════════════════════════════════
+--               SCREEN GUI
+-- ══════════════════════════════════════════
+
+if PlayerGui:FindFirstChild("PlaquinhaPro") then
+    PlayerGui:FindFirstChild("PlaquinhaPro"):Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlaquinhaPro"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
+
+-- ══════════════════════════════════════════
+--            PALETA DE CORES
+-- ══════════════════════════════════════════
+
+local paleta = {
+    {text=Color3.fromRGB(255,200,0),  stroke=Color3.fromRGB(255,60,0),  border=Color3.fromRGB(255,80,0)},
+    {text=Color3.fromRGB(0,230,255),  stroke=Color3.fromRGB(0,80,200),  border=Color3.fromRGB(0,180,255)},
+    {text=Color3.fromRGB(200,80,255), stroke=Color3.fromRGB(100,0,200), border=Color3.fromRGB(180,50,255)},
+    {text=Color3.fromRGB(80,255,120), stroke=Color3.fromRGB(0,150,50),  border=Color3.fromRGB(0,220,80)},
+    {text=Color3.fromRGB(255,100,150),stroke=Color3.fromRGB(200,0,60),  border=Color3.fromRGB(255,50,100)},
+}
+
+-- ══════════════════════════════════════════
+--          CRIAR ESTRUTURA DA PLACA
+-- ══════════════════════════════════════════
+
+local refs = {} -- referências para atualizar depois
+
+local function criarPlaca(posY, textoInicial, emojiE, emojiD, mostrarEmoji)
+    local r = {}
+
+    r.shadow = Instance.new("Frame")
+    r.shadow.Size = UDim2.new(0, cfg.largura, 0, cfg.altura + 4)
+    r.shadow.Position = UDim2.new(0.5, -(cfg.largura/2)-4, 0, posY+4)
+    r.shadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    r.shadow.BackgroundTransparency = 0.5
+    r.shadow.BorderSizePixel = 0
+    r.shadow.ZIndex = 9
+    r.shadow.Parent = ScreenGui
+    Instance.new("UICorner", r.shadow).CornerRadius = UDim.new(0.12,0)
+
+    r.frame = Instance.new("Frame")
+    r.frame.Size = UDim2.new(0, cfg.largura, 0, cfg.altura)
+    r.frame.Position = UDim2.new(0.5, -(cfg.largura/2), 0, posY)
+    r.frame.BackgroundColor3 = Color3.fromRGB(15,10,25)
+    r.frame.BorderSizePixel = 0
+    r.frame.ZIndex = 10
+    r.frame.Parent = ScreenGui
+    Instance.new("UICorner", r.frame).CornerRadius = UDim.new(0.12,0)
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(25,10,45)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15,10,30)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(25,10,45)),
+    })
+    grad.Rotation = 90
+    grad.Parent = r.frame
+
+    r.stroke = Instance.new("UIStroke")
+    r.stroke.Color = Color3.fromRGB(255,255,255)
+    r.stroke.Thickness = 3
+    r.stroke.Parent = r.frame
+
+    -- Linha topo
+    r.topLine = Instance.new("Frame")
+    r.topLine.Size = UDim2.new(0.85,0,0,2)
+    r.topLine.Position = UDim2.new(0.075,0,0,6)
+    r.topLine.BorderSizePixel = 0
+    r.topLine.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    r.topLine.ZIndex = 11
+    r.topLine.Parent = r.frame
+    local tg = Instance.new("UIGradient")
+    tg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Color3.fromRGB(0,0,0)),
+        ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0)),
+    })
+    tg.Parent = r.topLine
+
+    -- Linha base
+    r.botLine = Instance.new("Frame")
+    r.botLine.Size = UDim2.new(0.85,0,0,2)
+    r.botLine.Position = UDim2.new(0.075,0,1,-8)
+    r.botLine.BorderSizePixel = 0
+    r.botLine.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    r.botLine.ZIndex = 11
+    r.botLine.Parent = r.frame
+    local bg = Instance.new("UIGradient")
+    bg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Color3.fromRGB(0,0,0)),
+        ColorSequenceKeypoint.new(0.5,Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0)),
+    })
+    bg.Parent = r.botLine
+
+    -- Emoji esquerdo
+    r.emojiEsq = Instance.new("TextBox")
+    r.emojiEsq.Size = UDim2.new(0,56,0,50)
+    r.emojiEsq.Position = UDim2.new(0,8,0.5,-25)
+    r.emojiEsq.BackgroundColor3 = Color3.fromRGB(30,20,50)
+    r.emojiEsq.BackgroundTransparency = 0.4
+    r.emojiEsq.BorderSizePixel = 0
+    r.emojiEsq.Text = emojiE
+    r.emojiEsq.TextScaled = true
+    r.emojiEsq.Font = Enum.Font.GothamBold
+    r.emojiEsq.TextColor3 = Color3.fromRGB(255,255,255)
+    r.emojiEsq.ClearTextOnFocus = false
+    r.emojiEsq.ZIndex = 13
+    r.emojiEsq.Visible = mostrarEmoji
+    r.emojiEsq.Parent = r.frame
+    Instance.new("UICorner", r.emojiEsq).CornerRadius = UDim.new(0.2,0)
+
+    -- Emoji direito
+    r.emojiDir = Instance.new("TextBox")
+    r.emojiDir.Size = UDim2.new(0,56,0,50)
+    r.emojiDir.Position = UDim2.new(1,-64,0.5,-25)
+    r.emojiDir.BackgroundColor3 = Color3.fromRGB(30,20,50)
+    r.emojiDir.BackgroundTransparency = 0.4
+    r.emojiDir.BorderSizePixel = 0
+    r.emojiDir.Text = emojiD
+    r.emojiDir.TextScaled = true
+    r.emojiDir.Font = Enum.Font.GothamBold
+    r.emojiDir.TextColor3 = Color3.fromRGB(255,255,255)
+    r.emojiDir.ClearTextOnFocus = false
+    r.emojiDir.ZIndex = 13
+    r.emojiDir.Visible = mostrarEmoji
+    r.emojiDir.Parent = r.frame
+    Instance.new("UICorner", r.emojiDir).CornerRadius = UDim.new(0.2,0)
+
+    -- Calcula padding baseado em emoji visível
+    local padX = mostrarEmoji and 0.13 or 0.04
+
+    -- Sombra do texto
+    r.shadow2 = Instance.new("TextLabel")
+    r.shadow2.Size = UDim2.new(1-(padX*2),0,0.68,0)
+    r.shadow2.Position = UDim2.new(padX,2,0.16,2)
+    r.shadow2.BackgroundTransparency = 1
+    r.shadow2.Text = textoInicial
+    r.shadow2.TextScaled = true
+    r.shadow2.Font = Enum.Font.GothamBlack
+    r.shadow2.TextColor3 = Color3.fromRGB(0,0,0)
+    r.shadow2.TextTransparency = 0.55
+    r.shadow2.ZIndex = 11
+    r.shadow2.Parent = r.frame
+
+    -- TextBox principal
+    r.textBox = Instance.new("TextBox")
+    r.textBox.Size = UDim2.new(1-(padX*2),0,0.68,0)
+    r.textBox.Position = UDim2.new(padX,0,0.16,0)
+    r.textBox.BackgroundTransparency = 1
+    r.textBox.Text = textoInicial
+    r.textBox.PlaceholderText = "✍️ Digite aqui..."
+    r.textBox.PlaceholderColor3 = Color3.fromRGB(100,80,130)
+    r.textBox.TextScaled = true
+    r.textBox.Font = Enum.Font.GothamBlack
+    r.textBox.TextColor3 = Color3.fromRGB(255,255,255)
+    r.textBox.TextStrokeColor3 = Color3.fromRGB(200,200,200)
+    r.textBox.TextStrokeTransparency = 0.1
+    r.textBox.ClearTextOnFocus = false
+    r.textBox.ZIndex = 12
+    r.textBox.Parent = r.frame
+
+    r.textBox:GetPropertyChangedSignal("Text"):Connect(function()
+        r.shadow2.Text = r.textBox.Text
+    end)
+
+    return r
+end
+
+-- Cria as duas placas respeitando ordem
+local p1, p2
+if cfg.ordem == 1 then
+    p1 = criarPlaca(cfg.posYPlaca1, cfg.texto1, cfg.emoji1esq, cfg.emoji1dir, cfg.mostrarEmoji1)
+    p2 = criarPlaca(cfg.posYPlaca2, cfg.texto2, cfg.emoji2esq, cfg.emoji2dir, cfg.mostrarEmoji2)
+else
+    p2 = criarPlaca(cfg.posYPlaca1, cfg.texto2, cfg.emoji2esq, cfg.emoji2dir, cfg.mostrarEmoji2)
+    p1 = criarPlaca(cfg.posYPlaca2, cfg.texto1, cfg.emoji1esq, cfg.emoji1dir, cfg.mostrarEmoji1)
+end
+
+p1.frame.Visible = cfg.mostrarPlaca1
+p1.shadow.Visible = cfg.mostrarPlaca1
+p2.frame.Visible = cfg.mostrarPlaca2
+p2.shadow.Visible = cfg.mostrarPlaca2
+
+-- forward declaration para uso nos callbacks
+local atualizarPosAutor
+local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+
+-- ══════════════════════════════════════════
+--     PAINEL DE CONFIGURAÇÕES — COMPLETO
+-- ══════════════════════════════════════════
+
+local UIS = game:GetService("UserInputService")
+
+-- ── Botão flutuante ⚙️ ─────────────────────
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0,46,0,46)
+toggleBtn.Position = UDim2.new(1,-54,0.5,-23)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(18,12,38)
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Text = "⚙️"
+toggleBtn.TextScaled = true
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.ZIndex = 30
+toggleBtn.Parent = ScreenGui
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0.25,0)
+do
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(120,60,255); s.Thickness = 2; s.Parent = toggleBtn
+end
+
+-- ── Painel principal ───────────────────────
+local painel = Instance.new("Frame")
+painel.Size = UDim2.new(0,340,0,560)
+painel.Position = UDim2.new(0.5,-170,0.5,-280)
+painel.BackgroundColor3 = Color3.fromRGB(10,8,20)
+painel.BorderSizePixel = 0
+painel.ZIndex = 29
+painel.Visible = false
+painel.Parent = ScreenGui
+Instance.new("UICorner", painel).CornerRadius = UDim.new(0.025,0)
+do
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(70,30,160); s.Thickness = 2; s.Parent = painel
+end
+
+-- ── HEADER ────────────────────────────────
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,48)
+header.BackgroundColor3 = Color3.fromRGB(20,10,50)
+header.BorderSizePixel = 0
+header.ZIndex = 30
+header.Parent = painel
+Instance.new("UICorner", header).CornerRadius = UDim.new(0.025,0)
+do
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(100,20,200)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(40,10,100)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(180,60,20)),
+    })
+    g.Rotation = 90; g.Parent = header
+end
+
+local hIcon = Instance.new("TextLabel")
+hIcon.Size = UDim2.new(0,36,1,0)
+hIcon.Position = UDim2.new(0,8,0,0)
+hIcon.BackgroundTransparency = 1
+hIcon.Text = "🪧"; hIcon.TextScaled = true; hIcon.ZIndex = 31; hIcon.Parent = header
+
+local hTitle = Instance.new("TextLabel")
+hTitle.Size = UDim2.new(1,-110,1,0)
+hTitle.Position = UDim2.new(0,46,0,0)
+hTitle.BackgroundTransparency = 1
+hTitle.Text = "PLAQUINHA PRO"
+hTitle.TextScaled = true
+hTitle.Font = Enum.Font.GothamBlack
+hTitle.TextColor3 = Color3.fromRGB(255,255,255)
+hTitle.TextXAlignment = Enum.TextXAlignment.Left
+hTitle.ZIndex = 31; hTitle.Parent = header
+
+-- Botão minimizar
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0,28,0,28)
+minBtn.Position = UDim2.new(1,-68,0.5,-14)
+minBtn.BackgroundColor3 = Color3.fromRGB(50,50,80)
+minBtn.BorderSizePixel = 0
+minBtn.Text = "─"
+minBtn.TextScaled = true
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextColor3 = Color3.fromRGB(220,220,255)
+minBtn.ZIndex = 31; minBtn.Parent = header
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0.3,0)
+
+-- Botão fechar
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0,28,0,28)
+closeBtn.Position = UDim2.new(1,-34,0.5,-14)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180,30,30)
+closeBtn.BorderSizePixel = 0
+closeBtn.Text = "✕"
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+closeBtn.ZIndex = 31; closeBtn.Parent = header
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0.3,0)
+closeBtn.MouseButton1Click:Connect(function() painel.Visible = false end)
+
+-- ── ARRASTAR ──────────────────────────────
+do
+    local dragging, dragStart, startPos = false, nil, nil
+    header.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or
+           i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            startPos  = painel.Position
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or
+           i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if not dragging then return end
+        if i.UserInputType ~= Enum.UserInputType.MouseMovement and
+           i.UserInputType ~= Enum.UserInputType.Touch then return end
+        local delta = i.Position - dragStart
+        painel.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end)
+end
+
+-- ── BARRA DE ABAS ─────────────────────────
+local tabBar = Instance.new("Frame")
+tabBar.Size = UDim2.new(1,0,0,36)
+tabBar.Position = UDim2.new(0,0,0,48)
+tabBar.BackgroundColor3 = Color3.fromRGB(14,10,28)
+tabBar.BorderSizePixel = 0
+tabBar.ZIndex = 30; tabBar.Parent = painel
+
+local tabSep = Instance.new("Frame")
+tabSep.Size = UDim2.new(1,0,0,1)
+tabSep.Position = UDim2.new(0,0,0,84)
+tabSep.BackgroundColor3 = Color3.fromRGB(80,35,160)
+tabSep.BorderSizePixel = 0
+tabSep.ZIndex = 30; tabSep.Parent = painel
+
+-- Área de conteúdo
+local contentArea = Instance.new("Frame")
+contentArea.Size = UDim2.new(1,-8,1,-92)
+contentArea.Position = UDim2.new(0,4,0,88)
+contentArea.BackgroundTransparency = 1
+contentArea.ZIndex = 29; contentArea.Parent = painel
+
+-- ── Minimizar ─────────────────────────────
+local minimizado = false
+minBtn.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    contentArea.Visible = not minimizado
+    tabBar.Visible      = not minimizado
+    tabSep.Visible      = not minimizado
+    painel.Size = minimizado and UDim2.new(0,340,0,50) or UDim2.new(0,340,0,560)
+    minBtn.Text = minimizado and "▲" or "─"
+end)
+
+-- ── Criar scroll por aba ───────────────────
+local function mkScroll()
+    local s = Instance.new("ScrollingFrame")
+    s.Size = UDim2.new(1,0,1,0)
+    s.BackgroundTransparency = 1
+    s.BorderSizePixel = 0
+    s.ScrollBarThickness = 3
+    s.ScrollBarImageColor3 = Color3.fromRGB(130,60,255)
+    s.ZIndex = 30; s.Visible = false; s.Parent = contentArea
+    local lay = Instance.new("UIListLayout")
+    lay.Padding = UDim.new(0,5)
+    lay.Parent = s
+    lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        s.CanvasSize = UDim2.new(0,0,0,lay.AbsoluteContentSize.Y+10)
+    end)
+    return s
+end
+
+local TABS = {"🌐 Geral","🪧 Placa 1","🪧 Placa 2","✨ Anim","🎨 Cores"}
+local tabScrolls = {}
+for i = 1, #TABS do tabScrolls[i] = mkScroll() end
+
+-- ── Sistema de abas ────────────────────────
+local tabBtns = {}
+local currentTab = 0
+local TW_TAB = TweenInfo.new(0.12)
+
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0,2)
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tabLayout.VerticalAlignment   = Enum.VerticalAlignment.Center
+tabLayout.Parent = tabBar
+
+local function selecionarTab(idx)
+    currentTab = idx
+    for i, btn in ipairs(tabBtns) do
+        local on = (i == idx)
+        TweenService:Create(btn, TW_TAB, {
+            BackgroundColor3 = on and Color3.fromRGB(100,35,210) or Color3.fromRGB(20,14,44),
+            TextColor3       = on and Color3.fromRGB(255,255,255) or Color3.fromRGB(130,110,180),
+        }):Play()
+        tabScrolls[i].Visible = on
+    end
+end
+
+for i, label in ipairs(TABS) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0,62,0,28)
+    btn.BackgroundColor3 = Color3.fromRGB(20,14,44)
+    btn.BorderSizePixel = 0
+    btn.Text = label
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.TextColor3 = Color3.fromRGB(130,110,180)
+    btn.ZIndex = 31; btn.Parent = tabBar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0.25,0)
+    tabBtns[i] = btn
+    btn.MouseButton1Click:Connect(function() selecionarTab(i) end)
+end
+
+-- ══════════════════════════════════════════
+--           HELPERS DE UI
+-- ══════════════════════════════════════════
+
+local function mkSec(sc, txt)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1,-4,0,26)
+    f.BackgroundColor3 = Color3.fromRGB(25,12,55)
+    f.BorderSizePixel = 0
+    f.ZIndex = 31; f.Parent = sc
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0.2,0)
+    do
+        local g = Instance.new("UIGradient")
+        g.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(80,30,180)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(25,12,55)),
+        })
+        g.Parent = f
+        local st = Instance.new("UIStroke")
+        st.Color = Color3.fromRGB(85,40,185); st.Thickness = 1; st.Parent = f
+    end
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,-10,1,0)
+    lbl.Position = UDim2.new(0,10,0,0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = txt; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBlack
+    lbl.TextColor3 = Color3.fromRGB(185,120,255)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = f
+end
+
+local function mkToggle(sc, label, estado, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,38)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0
+    row.ZIndex = 31; row.Parent = sc
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.15,0)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.6,0,1,0)
+    lbl.Position = UDim2.new(0,10,0,0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = Color3.fromRGB(210,200,235)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = row
+
+    local pill = Instance.new("Frame")
+    pill.Size = UDim2.new(0,52,0,26)
+    pill.Position = UDim2.new(1,-58,0.5,-13)
+    pill.BackgroundColor3 = estado and Color3.fromRGB(70,210,100) or Color3.fromRGB(60,40,90)
+    pill.BorderSizePixel = 0
+    pill.ZIndex = 32; pill.Parent = row
+    Instance.new("UICorner", pill).CornerRadius = UDim.new(1,0)
+
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.new(0,20,0,20)
+    circle.Position = estado and UDim2.new(1,-23,0.5,-10) or UDim2.new(0,3,0.5,-10)
+    circle.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    circle.BorderSizePixel = 0
+    circle.ZIndex = 33; circle.Parent = pill
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1,0)
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1
+    btn.Text = ""; btn.ZIndex = 34; btn.Parent = pill
+
+    local on = estado
+    local TW = TweenInfo.new(0.15, Enum.EasingStyle.Quad)
+    btn.MouseButton1Click:Connect(function()
+        on = not on
+        TweenService:Create(pill,   TW, {BackgroundColor3 = on and Color3.fromRGB(70,210,100) or Color3.fromRGB(60,40,90)}):Play()
+        TweenService:Create(circle, TW, {Position = on and UDim2.new(1,-23,0.5,-10) or UDim2.new(0,3,0.5,-10)}):Play()
+        callback(on); salvarCfg()
+    end)
+    return {pill=pill, circle=circle, on=function() return on end}
+end
+
+local function mkSlider(sc, label, valor, min, max, passo, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,54)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0
+    row.ZIndex = 31; row.Parent = sc
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.1,0)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.65,0,0,22)
+    lbl.Position = UDim2.new(0,10,0,5)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = Color3.fromRGB(210,200,235)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = row
+
+    local valBox = Instance.new("TextBox")
+    valBox.Size = UDim2.new(0.28,0,0,22)
+    valBox.Position = UDim2.new(0.7,0,0,5)
+    valBox.BackgroundColor3 = Color3.fromRGB(22,15,50)
+    valBox.BorderSizePixel = 0
+    valBox.Text = tostring(valor); valBox.TextScaled = true
+    valBox.Font = Enum.Font.GothamBold
+    valBox.TextColor3 = Color3.fromRGB(185,120,255)
+    valBox.ClearTextOnFocus = false
+    valBox.ZIndex = 32; valBox.Parent = row
+    Instance.new("UICorner", valBox).CornerRadius = UDim.new(0.25,0)
+    do local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(90,45,190); s.Thickness=1; s.Parent=valBox end
+
+    local track = Instance.new("Frame")
+    track.Size = UDim2.new(1,-16,0,8)
+    track.Position = UDim2.new(0,8,1,-16)
+    track.BackgroundColor3 = Color3.fromRGB(30,20,55)
+    track.BorderSizePixel = 0
+    track.ZIndex = 32; track.Parent = row
+    Instance.new("UICorner", track).CornerRadius = UDim.new(1,0)
+
+    local pct = math.clamp((valor-min)/(max-min),0,1)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(pct,0,1,0)
+    fill.BackgroundColor3 = Color3.fromRGB(100,35,210)
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 33; fill.Parent = track
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
+    do
+        local g=Instance.new("UIGradient")
+        g.Color=ColorSequence.new({
+            ColorSequenceKeypoint.new(0,Color3.fromRGB(60,15,160)),
+            ColorSequenceKeypoint.new(1,Color3.fromRGB(200,70,255)),
+        }); g.Parent=fill
+    end
+
+    local handle = Instance.new("TextButton")
+    handle.Size = UDim2.new(0,20,0,20)
+    handle.Position = UDim2.new(pct,-10,0.5,-10)
+    handle.BackgroundColor3 = Color3.fromRGB(240,230,255)
+    handle.BorderSizePixel = 0; handle.Text = ""; handle.ZIndex = 34; handle.Parent = track
+    Instance.new("UICorner", handle).CornerRadius = UDim.new(1,0)
+    do local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(140,70,255); s.Thickness=2; s.Parent=handle end
+
+    local function aplicar(np)
+        local nv = math.clamp(min + math.round((np*(max-min))/passo)*passo, min, max)
+        local np2 = (nv-min)/(max-min)
+        fill.Size = UDim2.new(np2,0,1,0)
+        handle.Position = UDim2.new(np2,-10,0.5,-10)
+        valBox.Text = tostring(nv)
+        callback(nv); salvarCfg()
+    end
+
+    local dragging = false
+    handle.MouseButton1Down:Connect(function() dragging=true end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or
+           i.UserInputType==Enum.UserInputType.Touch then dragging=false end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if not dragging then return end
+        if i.UserInputType~=Enum.UserInputType.MouseMovement and
+           i.UserInputType~=Enum.UserInputType.Touch then return end
+        local np=math.clamp((i.Position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+        aplicar(np)
+    end)
+    valBox.FocusLost:Connect(function()
+        local n=tonumber(valBox.Text)
+        if n then aplicar((math.clamp(n,min,max)-min)/(max-min)) end
+    end)
+end
+
+local COR_PALETTE = {
+    Color3.fromRGB(255,255,255), Color3.fromRGB(255,200,0),
+    Color3.fromRGB(255,80,0),    Color3.fromRGB(255,50,100),
+    Color3.fromRGB(0,230,255),   Color3.fromRGB(0,180,255),
+    Color3.fromRGB(200,80,255),  Color3.fromRGB(130,0,255),
+    Color3.fromRGB(0,255,120),   Color3.fromRGB(0,200,80),
+    Color3.fromRGB(255,120,60),  Color3.fromRGB(255,255,100),
+    Color3.fromRGB(100,200,255), Color3.fromRGB(255,180,255),
+    Color3.fromRGB(180,255,200), Color3.fromRGB(80,80,80),
+}
+
+local function mkCorPicker(sc, label, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,68)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0
+    row.ZIndex = 31; row.Parent = sc
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.08,0)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,0,0,20)
+    lbl.Position = UDim2.new(0,10,0,4)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = Color3.fromRGB(210,200,235)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = row
+
+    -- Preview da cor atual
+    local preview = Instance.new("Frame")
+    preview.Size = UDim2.new(0,22,0,22)
+    preview.Position = UDim2.new(1,-30,0,4)
+    preview.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    preview.BorderSizePixel = 0
+    preview.ZIndex = 32; preview.Parent = row
+    Instance.new("UICorner", preview).CornerRadius = UDim.new(0.3,0)
+    do local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(255,255,255); s.Thickness=1.5; s.Parent=preview end
+
+    local grid = Instance.new("Frame")
+    grid.Size = UDim2.new(1,-16,0,40)
+    grid.Position = UDim2.new(0,8,0,26)
+    grid.BackgroundTransparency = 1
+    grid.ZIndex = 32; grid.Parent = row
+
+    for i, c in ipairs(COR_PALETTE) do
+        local cb = Instance.new("TextButton")
+        cb.Size = UDim2.new(0,22,0,20)
+        cb.Position = UDim2.new(0,(i-1)*24,0,0)
+        if i > 8 then
+            cb.Position = UDim2.new(0,(i-9)*24,0,22)
+        end
+        cb.BackgroundColor3 = c
+        cb.BorderSizePixel = 0; cb.Text = ""; cb.ZIndex = 33; cb.Parent = grid
+        Instance.new("UICorner", cb).CornerRadius = UDim.new(0.25,0)
+        cb.MouseButton1Click:Connect(function()
+            preview.BackgroundColor3 = c
+            callback(c); salvarCfg()
+        end)
+    end
+    return preview
+end
+
+local function mkInput(sc, label, valor, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,54)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0
+    row.ZIndex = 31; row.Parent = sc
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.1,0)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,0,0,18)
+    lbl.Position = UDim2.new(0,10,0,4)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = Color3.fromRGB(170,150,210)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = row
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1,-16,0,26)
+    box.Position = UDim2.new(0,8,0,24)
+    box.BackgroundColor3 = Color3.fromRGB(20,14,45)
+    box.BorderSizePixel = 0
+    box.Text = valor
+    box.PlaceholderText = "✍️ Digite..."
+    box.PlaceholderColor3 = Color3.fromRGB(80,60,110)
+    box.TextScaled = true
+    box.Font = Enum.Font.GothamBold
+    box.TextColor3 = Color3.fromRGB(255,215,100)
+    box.ClearTextOnFocus = false
+    box.ZIndex = 32; box.Parent = row
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0.18,0)
+    do local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(90,45,190); s.Thickness=1; s.Parent=box end
+
+    box:GetPropertyChangedSignal("Text"):Connect(function() callback(box.Text); salvarCfg() end)
+    return box
+end
+
+local FONTES = {
+    {label="Gotham",    font=Enum.Font.Gotham},
+    {label="Bold",      font=Enum.Font.GothamBold},
+    {label="Black",     font=Enum.Font.GothamBlack},
+    {label="Serif",     font=Enum.Font.SourceSerifPro},
+    {label="Mono",      font=Enum.Font.RobotoMono},
+    {label="Fantasy",   font=Enum.Font.Fantasy},
+}
+
+local function mkFontPicker(sc, label, fonteAtual, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,62)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0
+    row.ZIndex = 31; row.Parent = sc
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.08,0)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,0,0,18)
+    lbl.Position = UDim2.new(0,10,0,4)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = Color3.fromRGB(210,200,235)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = row
+
+    local grid = Instance.new("Frame")
+    grid.Size = UDim2.new(1,-12,0,36)
+    grid.Position = UDim2.new(0,6,0,24)
+    grid.BackgroundTransparency = 1
+    grid.ZIndex = 32; grid.Parent = row
+
+    local btnMap = {}
+    for i, f in ipairs(FONTES) do
+        local fb = Instance.new("TextButton")
+        fb.Size = UDim2.new(0,50,0,28)
+        fb.Position = UDim2.new(0,(i-1)*54,0,0)
+        fb.BackgroundColor3 = (f.font==fonteAtual) and Color3.fromRGB(100,35,210) or Color3.fromRGB(28,18,58)
+        fb.BorderSizePixel = 0
+        fb.Text = f.label; fb.TextScaled = true
+        fb.Font = f.font
+        fb.TextColor3 = Color3.fromRGB(230,220,255)
+        fb.ZIndex = 33; fb.Parent = grid
+        Instance.new("UICorner", fb).CornerRadius = UDim.new(0.25,0)
+        btnMap[i] = fb
+        fb.MouseButton1Click:Connect(function()
+            for j, b in ipairs(btnMap) do
+                b.BackgroundColor3 = (j==i) and Color3.fromRGB(100,35,210) or Color3.fromRGB(28,18,58)
+            end
+            callback(f.font); salvarCfg()
+        end)
+    end
+end
+
+local function mkBotao(sc, texto, cor, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-4,0,36)
+    btn.BackgroundColor3 = cor
+    btn.BorderSizePixel = 0
+    btn.Text = texto; btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.ZIndex = 31; btn.Parent = sc
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0.2,0)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- ══════════════════════════════════════════
+--       ABA 1 — GERAL
+-- ══════════════════════════════════════════
+local sGeral = tabScrolls[1]
+
+mkSec(sGeral, "👁️  VISIBILIDADE")
+mkToggle(sGeral, "Mostrar Placa 1", cfg.mostrarPlaca1, function(v)
+    cfg.mostrarPlaca1=v; p1.frame.Visible=v; p1.shadow.Visible=v; atualizarPosAutor()
+end)
+mkToggle(sGeral, "Mostrar Placa 2", cfg.mostrarPlaca2, function(v)
+    cfg.mostrarPlaca2=v; p2.frame.Visible=v; p2.shadow.Visible=v; atualizarPosAutor()
+end)
+mkToggle(sGeral, "Emojis Placa 1", cfg.mostrarEmoji1, function(v)
+    cfg.mostrarEmoji1=v; p1.emojiEsq.Visible=v; p1.emojiDir.Visible=v
+end)
+mkToggle(sGeral, "Emojis Placa 2", cfg.mostrarEmoji2, function(v)
+    cfg.mostrarEmoji2=v; p2.emojiEsq.Visible=v; p2.emojiDir.Visible=v
+end)
+
+mkSec(sGeral, "🔀  ORDEM")
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,38)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0
+    row.ZIndex = 31; row.Parent = sGeral
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.15,0)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.5,0,1,0)
+    lbl.Position = UDim2.new(0,10,0,0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "Posição das placas"; lbl.TextScaled = true
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = Color3.fromRGB(210,200,235)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 32; lbl.Parent = row
+    local oBtn = Instance.new("TextButton")
+    oBtn.Size = UDim2.new(0,120,0,28)
+    oBtn.Position = UDim2.new(1,-126,0.5,-14)
+    oBtn.BackgroundColor3 = Color3.fromRGB(75,28,160)
+    oBtn.BorderSizePixel = 0
+    oBtn.Text = cfg.ordem==1 and "1↑  2↓" or "2↑  1↓"
+    oBtn.TextScaled = true; oBtn.Font = Enum.Font.GothamBold
+    oBtn.TextColor3 = Color3.fromRGB(255,210,80)
+    oBtn.ZIndex = 32; oBtn.Parent = row
+    Instance.new("UICorner", oBtn).CornerRadius = UDim.new(0.3,0)
+    oBtn.MouseButton1Click:Connect(function()
+        cfg.ordem = cfg.ordem==1 and 2 or 1
+        oBtn.Text = cfg.ordem==1 and "1↑  2↓" or "2↑  1↓"
+        local y1=p1.frame.Position.Y.Offset; local y2=p2.frame.Position.Y.Offset
+        p1.frame.Position=UDim2.new(0.5,-(cfg.largura/2),0,y2)
+        p1.shadow.Position=UDim2.new(0.5,-(cfg.largura/2)-4,0,y2+4)
+        p2.frame.Position=UDim2.new(0.5,-(cfg.largura/2),0,y1)
+        p2.shadow.Position=UDim2.new(0.5,-(cfg.largura/2)-4,0,y1+4)
+        atualizarPosAutor(); salvarCfg()
+    end)
+end
+
+mkSec(sGeral, "📐  TAMANHO  (ambas as placas)")
+mkSlider(sGeral, "Largura", cfg.largura, 200, 900, 10, function(v)
+    cfg.largura=v
+    for _,px in ipairs({p1,p2}) do
+        local y=px.frame.Position.Y.Offset
+        px.frame.Size=UDim2.new(0,v,0,cfg.altura); px.frame.Position=UDim2.new(0.5,-(v/2),0,y)
+        px.shadow.Size=UDim2.new(0,v+4,0,cfg.altura+4); px.shadow.Position=UDim2.new(0.5,-(v/2)-4,0,y+4)
+    end; atualizarPosAutor()
+end)
+mkSlider(sGeral, "Altura", cfg.altura, 40, 180, 5, function(v)
+    cfg.altura=v
+    for _,px in ipairs({p1,p2}) do
+        px.frame.Size=UDim2.new(0,cfg.largura,0,v)
+        px.shadow.Size=UDim2.new(0,cfg.largura+4,0,v+4)
+    end; atualizarPosAutor()
+end)
+mkSlider(sGeral, "Espessura da Borda", 3, 1, 10, 1, function(v)
+    p1.stroke.Thickness=v; p2.stroke.Thickness=v
+end)
+
+mkSec(sGeral, "🔧  RESET")
+mkBotao(sGeral, "🔄 Restaurar Padrões", Color3.fromRGB(120,30,30), function()
+    cfg.largura=640; cfg.altura=86; cfg.posYPlaca1=14; cfg.posYPlaca2=118
+    cfg.animacao=true; cfg.velocidade=1.2
+    for _,px in ipairs({p1,p2}) do
+        px.frame.Size=UDim2.new(0,640,0,86); px.shadow.Size=UDim2.new(0,644,0,90)
+        px.stroke.Thickness=3
+    end
+    p1.frame.Position=UDim2.new(0.5,-320,0,14); p1.shadow.Position=UDim2.new(0.5,-324,0,18)
+    p2.frame.Position=UDim2.new(0.5,-320,0,118); p2.shadow.Position=UDim2.new(0.5,-324,0,122)
+    atualizarPosAutor(); salvarCfg()
+end)
+
+-- ══════════════════════════════════════════
+--       ABA 2 — PLACA 1
+-- ══════════════════════════════════════════
+local sP1 = tabScrolls[2]
+
+mkSec(sP1, "✏️  TEXTO")
+mkInput(sP1, "Conteúdo da Placa 1", cfg.texto1, function(v)
+    p1.textBox.Text=v; p1.shadow2.Text=v; cfg.texto1=v
+end)
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,54)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0; row.ZIndex = 31; row.Parent = sP1
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.1,0)
+    local function mkEmojiBox(lbl, posX, val, callback)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(0.44,0,0,18); l.Position = UDim2.new(posX,0,0,4)
+        l.BackgroundTransparency=1; l.Text=lbl; l.TextScaled=true
+        l.Font=Enum.Font.GothamBold; l.TextColor3=Color3.fromRGB(170,150,210)
+        l.TextXAlignment=Enum.TextXAlignment.Left; l.ZIndex=32; l.Parent=row
+        local b = Instance.new("TextBox")
+        b.Size=UDim2.new(0.44,0,0,26); b.Position=UDim2.new(posX,0,0,24)
+        b.BackgroundColor3=Color3.fromRGB(20,14,45); b.BorderSizePixel=0
+        b.Text=val; b.TextScaled=true; b.Font=Enum.Font.GothamBold
+        b.TextColor3=Color3.fromRGB(255,215,100); b.ClearTextOnFocus=false
+        b.ZIndex=32; b.Parent=row
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0.18,0)
+        do local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(90,45,190); s.Thickness=1; s.Parent=b end
+        b:GetPropertyChangedSignal("Text"):Connect(function() callback(b.Text); salvarCfg() end)
+    end
+    mkEmojiBox("◀ Emoji Esq", 0.03, cfg.emoji1esq, function(v) p1.emojiEsq.Text=v; cfg.emoji1esq=v end)
+    mkEmojiBox("▶ Emoji Dir", 0.53, cfg.emoji1dir, function(v) p1.emojiDir.Text=v; cfg.emoji1dir=v end)
+end
+
+mkSec(sP1, "👁️  VISIBILIDADE")
+mkToggle(sP1, "Mostrar Placa 1", cfg.mostrarPlaca1, function(v)
+    cfg.mostrarPlaca1=v; p1.frame.Visible=v; p1.shadow.Visible=v; atualizarPosAutor()
+end)
+mkToggle(sP1, "Mostrar Emojis", cfg.mostrarEmoji1, function(v)
+    cfg.mostrarEmoji1=v; p1.emojiEsq.Visible=v; p1.emojiDir.Visible=v
+end)
+
+mkSec(sP1, "📍  POSIÇÃO Y")
+mkSlider(sP1, "Posição Y", cfg.posYPlaca1, 0, 500, 5, function(v)
+    cfg.posYPlaca1=v
+    p1.frame.Position=UDim2.new(0.5,-(cfg.largura/2),0,v)
+    p1.shadow.Position=UDim2.new(0.5,-(cfg.largura/2)-4,0,v+4)
+    atualizarPosAutor()
+end)
+
+mkSec(sP1, "🔤  FONTE")
+mkFontPicker(sP1, "Fonte da Placa 1", cfg.fontePlaca1, function(f)
+    cfg.fontePlaca1=f; p1.textBox.Font=f; p1.shadow2.Font=f
+end)
+
+mkSec(sP1, "📏  BORDA")
+mkSlider(sP1, "Espessura", 3, 1, 10, 1, function(v) p1.stroke.Thickness=v end)
+mkSlider(sP1, "Arredondamento", 12, 0, 30, 1, function(v)
+    for _,c in ipairs(p1.frame:GetChildren()) do
+        if c:IsA("UICorner") then c.CornerRadius=UDim.new(0,v) end
+    end
+end)
+
+-- ══════════════════════════════════════════
+--       ABA 3 — PLACA 2
+-- ══════════════════════════════════════════
+local sP2 = tabScrolls[3]
+
+mkSec(sP2, "✏️  TEXTO")
+mkInput(sP2, "Conteúdo da Placa 2", cfg.texto2, function(v)
+    p2.textBox.Text=v; p2.shadow2.Text=v; cfg.texto2=v
+end)
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,54)
+    row.BackgroundColor3 = Color3.fromRGB(15,10,30)
+    row.BorderSizePixel = 0; row.ZIndex = 31; row.Parent = sP2
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0.1,0)
+    local function mkEmojiBox(lbl, posX, val, callback)
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(0.44,0,0,18); l.Position = UDim2.new(posX,0,0,4)
+        l.BackgroundTransparency=1; l.Text=lbl; l.TextScaled=true
+        l.Font=Enum.Font.GothamBold; l.TextColor3=Color3.fromRGB(170,150,210)
+        l.TextXAlignment=Enum.TextXAlignment.Left; l.ZIndex=32; l.Parent=row
+        local b = Instance.new("TextBox")
+        b.Size=UDim2.new(0.44,0,0,26); b.Position=UDim2.new(posX,0,0,24)
+        b.BackgroundColor3=Color3.fromRGB(20,14,45); b.BorderSizePixel=0
+        b.Text=val; b.TextScaled=true; b.Font=Enum.Font.GothamBold
+        b.TextColor3=Color3.fromRGB(255,215,100); b.ClearTextOnFocus=false
+        b.ZIndex=32; b.Parent=row
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0.18,0)
+        do local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(90,45,190); s.Thickness=1; s.Parent=b end
+        b:GetPropertyChangedSignal("Text"):Connect(function() callback(b.Text); salvarCfg() end)
+    end
+    mkEmojiBox("◀ Emoji Esq", 0.03, cfg.emoji2esq, function(v) p2.emojiEsq.Text=v; cfg.emoji2esq=v end)
+    mkEmojiBox("▶ Emoji Dir", 0.53, cfg.emoji2dir, function(v) p2.emojiDir.Text=v; cfg.emoji2dir=v end)
+end
+
+mkSec(sP2, "👁️  VISIBILIDADE")
+mkToggle(sP2, "Mostrar Placa 2", cfg.mostrarPlaca2, function(v)
+    cfg.mostrarPlaca2=v; p2.frame.Visible=v; p2.shadow.Visible=v; atualizarPosAutor()
+end)
+mkToggle(sP2, "Mostrar Emojis", cfg.mostrarEmoji2, function(v)
+    cfg.mostrarEmoji2=v; p2.emojiEsq.Visible=v; p2.emojiDir.Visible=v
+end)
+
+mkSec(sP2, "📍  POSIÇÃO Y")
+mkSlider(sP2, "Posição Y", cfg.posYPlaca2, 0, 500, 5, function(v)
+    cfg.posYPlaca2=v
+    p2.frame.Position=UDim2.new(0.5,-(cfg.largura/2),0,v)
+    p2.shadow.Position=UDim2.new(0.5,-(cfg.largura/2)-4,0,v+4)
+    atualizarPosAutor()
+end)
+
+mkSec(sP2, "🔤  FONTE")
+mkFontPicker(sP2, "Fonte da Placa 2", cfg.fontePlaca2, function(f)
+    cfg.fontePlaca2=f; p2.textBox.Font=f; p2.shadow2.Font=f
+end)
+
+mkSec(sP2, "📏  BORDA")
+mkSlider(sP2, "Espessura", 3, 1, 10, 1, function(v) p2.stroke.Thickness=v end)
+mkSlider(sP2, "Arredondamento", 12, 0, 30, 1, function(v)
+    for _,c in ipairs(p2.frame:GetChildren()) do
+        if c:IsA("UICorner") then c.CornerRadius=UDim.new(0,v) end
+    end
+end)
+
+-- ══════════════════════════════════════════
+--       ABA 4 — ANIMAÇÃO
+-- ══════════════════════════════════════════
+local sAnim = tabScrolls[4]
+
+mkSec(sAnim, "🎬  ANIMAÇÃO")
+mkToggle(sAnim, "Animação de cor ativa", cfg.animacao, function(v)
+    cfg.animacao=v
+    if not v then
+        for _,px in ipairs({p1,p2}) do
+            px.textBox.TextColor3=cfg.corTexto; px.stroke.Color=cfg.corBorda
+        end
+        autorLabel.TextColor3=Color3.fromRGB(255,255,255)
+        autorStroke.Color=Color3.fromRGB(255,255,255)
+        autorTopLine.BackgroundColor3=Color3.fromRGB(255,255,255)
+        autorBotLine.BackgroundColor3=Color3.fromRGB(255,255,255)
+    end
+end)
+mkSlider(sAnim, "Velocidade (seg/ciclo)", cfg.velocidade, 0.2, 5, 0.1, function(v) cfg.velocidade=v end)
+
+mkSec(sAnim, "🌊  ESTILO DE TRANSIÇÃO")
+do
+    local estilos = {
+        {t="Sine",   e=Enum.EasingStyle.Sine},
+        {t="Bounce", e=Enum.EasingStyle.Bounce},
+        {t="Elastic",e=Enum.EasingStyle.Elastic},
+        {t="Linear", e=Enum.EasingStyle.Linear},
+    }
+    local row = Instance.new("Frame")
+    row.Size=UDim2.new(1,-4,0,36)
+    row.BackgroundColor3=Color3.fromRGB(15,10,30)
+    row.BorderSizePixel=0; row.ZIndex=31; row.Parent=sAnim
+    Instance.new("UICorner",row).CornerRadius=UDim.new(0.15,0)
+    local lay=Instance.new("UIListLayout")
+    lay.FillDirection=Enum.FillDirection.Horizontal
+    lay.Padding=UDim.new(0,4)
+    lay.HorizontalAlignment=Enum.HorizontalAlignment.Center
+    lay.VerticalAlignment=Enum.VerticalAlignment.Center
+    lay.Parent=row
+    local estiloBtns={}
+    for i,es in ipairs(estilos) do
+        local b=Instance.new("TextButton")
+        b.Size=UDim2.new(0,72,0,26)
+        b.BackgroundColor3=(i==1) and Color3.fromRGB(100,35,210) or Color3.fromRGB(28,18,58)
+        b.BorderSizePixel=0; b.Text=es.t; b.TextScaled=true
+        b.Font=Enum.Font.GothamBold; b.TextColor3=Color3.fromRGB(230,220,255)
+        b.ZIndex=32; b.Parent=row
+        Instance.new("UICorner",b).CornerRadius=UDim.new(0.25,0)
+        estiloBtns[i]=b
+        b.MouseButton1Click:Connect(function()
+            for j,bb in ipairs(estiloBtns) do
+                bb.BackgroundColor3=(j==i) and Color3.fromRGB(100,35,210) or Color3.fromRGB(28,18,58)
+            end
+            -- atualiza tweenInfo global
+            tweenInfo = TweenInfo.new(0.5, es.e, Enum.EasingDirection.InOut)
+        end)
+    end
+end
+
+mkSec(sAnim, "⚡  DURAÇÃO DA TRANSIÇÃO")
+mkSlider(sAnim, "Duração (seg)", 0.5, 0.05, 2, 0.05, function(v)
+    tweenInfo = TweenInfo.new(v, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+end)
+
+-- ══════════════════════════════════════════
+--       ABA 5 — CORES
+-- ══════════════════════════════════════════
+local sCores = tabScrolls[5]
+
+mkSec(sCores, "🎨  AMBAS AS PLACAS")
+mkCorPicker(sCores, "Cor do Texto (ambas)", function(c)
+    cfg.corTexto=c
+    if not cfg.animacao then
+        p1.textBox.TextColor3=c; p2.textBox.TextColor3=c
+    end
+end)
+mkCorPicker(sCores, "Cor da Borda (ambas)", function(c)
+    cfg.corBorda=c
+    if not cfg.animacao then
+        p1.stroke.Color=c; p2.stroke.Color=c
+    end
+end)
+
+mkSec(sCores, "🪧  SÓ PLACA 1")
+mkCorPicker(sCores, "Texto — Placa 1", function(c)
+    if not cfg.animacao then p1.textBox.TextColor3=c end
+end)
+mkCorPicker(sCores, "Borda — Placa 1", function(c)
+    if not cfg.animacao then p1.stroke.Color=c end
+end)
+mkCorPicker(sCores, "Linhas — Placa 1", function(c)
+    if not cfg.animacao then
+        p1.topLine.BackgroundColor3=c; p1.botLine.BackgroundColor3=c
+    end
+end)
+
+mkSec(sCores, "🪧  SÓ PLACA 2")
+mkCorPicker(sCores, "Texto — Placa 2", function(c)
+    if not cfg.animacao then p2.textBox.TextColor3=c end
+end)
+mkCorPicker(sCores, "Borda — Placa 2", function(c)
+    if not cfg.animacao then p2.stroke.Color=c end
+end)
+mkCorPicker(sCores, "Linhas — Placa 2", function(c)
+    if not cfg.animacao then
+        p2.topLine.BackgroundColor3=c; p2.botLine.BackgroundColor3=c
+    end
+end)
+
+mkSec(sCores, "✍️  CRÉDITOS")
+mkCorPicker(sCores, "Cor dos Créditos", function(c)
+    if not cfg.animacao then
+        autorLabel.TextColor3=c; autorStroke.Color=c
+        autorTopLine.BackgroundColor3=c; autorBotLine.BackgroundColor3=c
+    end
+end)
+mkSlider(sCores, "Transparência Créditos", 35, 0, 95, 5, function(v)
+    autorLabel.TextTransparency = v/100
+    autorFrame.BackgroundTransparency = math.min(1, v/100 + 0.3)
+    autorStroke.Transparency = math.min(1, v/100 + 0.2)
+end)
+
+-- ── Toggle do painel ───────────────────────
+selecionarTab(1)
+toggleBtn.MouseButton1Click:Connect(function()
+    painel.Visible = not painel.Visible
+    if painel.Visible then selecionarTab(1) end
+end)
+
+-- ══════════════════════════════════════════
+--          ANIMAÇÃO DAS PLACAS
+-- ══════════════════════════════════════════
+
+tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local idx = 1
+
+task.spawn(function()
+    while task.wait(cfg.velocidade) do
+        if not cfg.animacao then continue end
+        local p = paleta[idx]
+        for _, ref in ipairs({p1, p2}) do
+            TweenService:Create(ref.textBox,  tweenInfo, {TextColor3=p.text, TextStrokeColor3=p.stroke}):Play()
+            TweenService:Create(ref.stroke,   tweenInfo, {Color=p.border}):Play()
+            TweenService:Create(ref.topLine,  tweenInfo, {BackgroundColor3=p.text}):Play()
+            TweenService:Create(ref.botLine,  tweenInfo, {BackgroundColor3=p.border}):Play()
+        end
+        -- Mini placa autor acompanha animação
+        TweenService:Create(autorLabel,   tweenInfo, {TextColor3=p.text, TextStrokeColor3=p.stroke}):Play()
+        TweenService:Create(autorStroke,  tweenInfo, {Color=p.border}):Play()
+        TweenService:Create(autorTopLine, tweenInfo, {BackgroundColor3=p.text}):Play()
+        TweenService:Create(autorBotLine, tweenInfo, {BackgroundColor3=p.border}):Play()
+        idx = (idx % #paleta) + 1
+    end
+end)
+
+-- ══════════════════════════════════════════
+--          AUTO SAVE DOS TEXTOS
+-- ══════════════════════════════════════════
+
+local function bindSave(ref, key1, key2, key3, key4)
+    ref.textBox:GetPropertyChangedSignal("Text"):Connect(function()
+        cfg[key1] = ref.textBox.Text; salvarCfg()
+    end)
+    ref.emojiEsq:GetPropertyChangedSignal("Text"):Connect(function()
+        cfg[key2] = ref.emojiEsq.Text; salvarCfg()
+    end)
+    ref.emojiDir:GetPropertyChangedSignal("Text"):Connect(function()
+        cfg[key3] = ref.emojiDir.Text; salvarCfg()
+    end)
+end
+
+bindSave(p1, "texto1", "emoji1esq", "emoji1dir")
+bindSave(p2, "texto2", "emoji2esq", "emoji2dir")
+
+-- ── Mini placa de autor ───────────────────
+local AUTOR_TEXTO = "by @o_escolhido on tiktok"
+local AUTOR_H     = 28
+local AUTOR_W     = 220 -- largura fixa pequena, do tamanho do texto
+
+local autorShadow = Instance.new("Frame")
+autorShadow.Size = UDim2.new(0, AUTOR_W+4, 0, AUTOR_H+4)
+autorShadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
+autorShadow.BackgroundTransparency = 0.8
+autorShadow.BorderSizePixel = 0
+autorShadow.ZIndex = 9
+autorShadow.Parent = ScreenGui
+Instance.new("UICorner", autorShadow).CornerRadius = UDim.new(0.35,0)
+
+local autorFrame = Instance.new("Frame")
+autorFrame.Size = UDim2.new(0, AUTOR_W, 0, AUTOR_H)
+autorFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+autorFrame.BackgroundTransparency = 0.75
+autorFrame.BorderSizePixel = 0
+autorFrame.ZIndex = 10
+autorFrame.Parent = ScreenGui
+Instance.new("UICorner", autorFrame).CornerRadius = UDim.new(0.35,0)
+do
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(10,10,10)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,0,0)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(10,10,10)),
+    })
+    g.Rotation = 90
+    g.Parent = autorFrame
+end
+local autorStroke = Instance.new("UIStroke")
+autorStroke.Color = Color3.fromRGB(255,255,255)
+autorStroke.Thickness = 1.5
+autorStroke.Transparency = 0.55
+autorStroke.Parent = autorFrame
+
+-- Linha topo mini
+local autorTopLine = Instance.new("Frame")
+autorTopLine.Size = UDim2.new(0.7,0,0,1)
+autorTopLine.Position = UDim2.new(0.15,0,0,2)
+autorTopLine.BorderSizePixel = 0
+autorTopLine.BackgroundColor3 = Color3.fromRGB(255,255,255)
+autorTopLine.ZIndex = 11
+autorTopLine.Parent = autorFrame
+do
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(0,0,0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(0,0,0)),
+    })
+    g.Parent = autorTopLine
+end
+
+-- Linha base mini
+local autorBotLine = Instance.new("Frame")
+autorBotLine.Size = UDim2.new(0.7,0,0,1)
+autorBotLine.Position = UDim2.new(0.15,0,1,-3)
+autorBotLine.BorderSizePixel = 0
+autorBotLine.BackgroundColor3 = Color3.fromRGB(255,255,255)
+autorBotLine.ZIndex = 11
+autorBotLine.Parent = autorFrame
+do
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(0,0,0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(0,0,0)),
+    })
+    g.Parent = autorBotLine
+end
+
+-- Sombra do texto
+local autorShadowTxt = Instance.new("TextLabel")
+autorShadowTxt.Size = UDim2.new(1,-8,0.8,0)
+autorShadowTxt.Position = UDim2.new(0,5,0.1,1)
+autorShadowTxt.BackgroundTransparency = 1
+autorShadowTxt.Text = AUTOR_TEXTO
+autorShadowTxt.TextScaled = true
+autorShadowTxt.Font = Enum.Font.GothamBold
+autorShadowTxt.TextColor3 = Color3.fromRGB(0,0,0)
+autorShadowTxt.TextTransparency = 0.75
+autorShadowTxt.ZIndex = 11
+autorShadowTxt.Parent = autorFrame
+
+-- Texto principal
+local autorLabel = Instance.new("TextLabel")
+autorLabel.Size = UDim2.new(1,-8,0.8,0)
+autorLabel.Position = UDim2.new(0,4,0.1,0)
+autorLabel.BackgroundTransparency = 1
+autorLabel.Text = AUTOR_TEXTO
+autorLabel.TextScaled = true
+autorLabel.Font = Enum.Font.GothamBold
+autorLabel.TextColor3 = Color3.fromRGB(255,255,255)
+autorLabel.TextStrokeColor3 = Color3.fromRGB(200,200,200)
+autorLabel.TextTransparency = 0.35
+autorLabel.TextStrokeTransparency = 0.2
+autorLabel.ZIndex = 12
+autorLabel.Parent = autorFrame
+
+atualizarPosAutor = function()
+    local bottomY = 0
+    if cfg.mostrarPlaca1 and cfg.mostrarPlaca2 then
+        local y1 = p1.frame.Position.Y.Offset + cfg.altura
+        local y2 = p2.frame.Position.Y.Offset + cfg.altura
+        bottomY = math.max(y1, y2)
+    elseif cfg.mostrarPlaca1 then
+        bottomY = p1.frame.Position.Y.Offset + cfg.altura
+    elseif cfg.mostrarPlaca2 then
+        bottomY = p2.frame.Position.Y.Offset + cfg.altura
+    else
+        -- nenhuma placa visível: usa referência da placa1
+        bottomY = cfg.posYPlaca1 + cfg.altura
+    end
+    autorFrame.Position  = UDim2.new(0.5, -(AUTOR_W/2),   0, bottomY + 5)
+    autorShadow.Position = UDim2.new(0.5, -(AUTOR_W/2)-2, 0, bottomY + 7)
+    -- créditos sempre visíveis
+    autorFrame.Visible  = true
+    autorShadow.Visible = true
+end
+
+atualizarPosAutor()
+
+print("✅ Plaquinha Pro carregada! Clique em ⚙️ para configurar.")
